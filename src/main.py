@@ -1,19 +1,21 @@
 # Instagram
-import datetime
 from instagram import client
 
 # Cassandra
 from cassandra.cqlengine import connection
+
 import os
+import datetime
 
 # Schedule
+import langid
 import schedule
 import time
 
 # Custom classes
-from media import MediaEntity
-from user import UserEntity
-from user_recent_media import UserRecentMediaEntity
+from src.media import MediaEntity
+from src.user import UserEntity
+from src.user_recent_media import UserRecentMediaEntity
 
 
 def generate_token_url(unauthenticated_api):
@@ -40,7 +42,10 @@ def handle_raw_popular_media():
 
         # Parse the recent popular media
         parsed_media = MediaEntity.parse(media)
-        parsed_media.save()
+
+        # Determine if english speaking user, if so, continue
+        if langid.classify(parsed_media.caption_text)[0] != 'en':
+            continue
 
         # Find the user info
         print 'Calling get user at %s.' % datetime.datetime.now()
@@ -98,7 +103,7 @@ if __name__ == '__main__':
         exit()
 
     # This is where we could schedule our job
-    print 'Scheduling job for every 2.5 minutes, time is %s.' % datetime.datetime.now()
+    print 'Scheduling job for every 140 seconds, time is %s.' % datetime.datetime.now()
     schedule.every(140).seconds.do(handle_raw_popular_media)
 
     while True:
