@@ -3,7 +3,7 @@ from cassandra.cqlengine.management import sync_table
 from cassandra.cqlengine.models import Model
 
 
-class UserEntity(Model):
+class RawUserEntity(Model):
     id = columns.Text(primary_key=True)
     username = columns.Text()
     full_name = columns.Text()
@@ -66,10 +66,10 @@ class UserEntity(Model):
         except:
             followers = 0
 
-        return UserEntity(id=id, username=username, full_name=full_name,
+        return RawUserEntity(id=id, username=username, full_name=full_name,
                           profile_picture=profile_picture, bio=bio, website=website,
                           media_count=media_count, follows=follows, followers=followers)
 
     @staticmethod
     def sync_table():
-        sync_table(UserEntity)
+        sync_table(RawUserEntity)

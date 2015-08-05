@@ -4,7 +4,7 @@ from cassandra.cqlengine.models import Model
 import datetime
 
 
-class MediaEntity(Model):
+class RawRecentMediaEntity(Model):
     id = columns.Text(primary_key=True)
     user_id = columns.Integer()
     username = columns.Text()
@@ -100,10 +100,10 @@ class MediaEntity(Model):
         except:
             location = "NA"
 
-        return MediaEntity(id=id, username=username, full_name=full_name, user_id=user_id,
+        return RawRecentMediaEntity(id=id, username=username, full_name=full_name, user_id=user_id,
                            caption_text=caption_text, likes_count=likes_count, comments=comments,
                            comment_count=comment_count, tags=tags, url=url, date_time=date_time, location=location)
 
     @staticmethod
     def sync_table():
-        sync_table(MediaEntity)
+        sync_table(RawRecentMediaEntity)
