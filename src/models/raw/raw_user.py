@@ -4,27 +4,27 @@ from cassandra.cqlengine.models import Model
 
 
 class RawUserEntity(Model):
-    id = columns.Text(primary_key=True)
+    user_id = columns.Integer(primary_key=True)
     username = columns.Text()
     full_name = columns.Text()
     profile_picture = columns.Text()
-    bio = columns.Text()
+    bio = columns.Text(index=True)
     website = columns.Text()
-    media_count = columns.Integer()
-    follows = columns.Integer()
-    followers = columns.Integer()
+    media_count = columns.Integer(index=True)
+    follows = columns.Integer(index=True)
+    followers = columns.Integer(index=True)
 
     def __repr__(self):
         return 'Id: %d - Username: %s - Media Count: %d - Follows: %d - Followers: %d' \
-               % (self.id, self.username, self.media_count, self.follows, self.followers)
+               % (self.user_id, self.username, self.media_count, self.follows, self.followers)
 
     @staticmethod
     def parse(single_user):
 
         try:
-            id = single_user.id
+            user_id = single_user.id
         except:
-            id = "NA"
+            user_id = -1
 
         try:
             username = single_user.username
@@ -66,9 +66,9 @@ class RawUserEntity(Model):
         except:
             followers = 0
 
-        return RawUserEntity(id=id, username=username, full_name=full_name,
-                          profile_picture=profile_picture, bio=bio, website=website,
-                          media_count=media_count, follows=follows, followers=followers)
+        return RawUserEntity(user_id=user_id, username=username, full_name=full_name,
+                             profile_picture=profile_picture, bio=bio, website=website,
+                             media_count=media_count, follows=follows, followers=followers)
 
     @staticmethod
     def sync_table():

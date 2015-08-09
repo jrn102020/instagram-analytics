@@ -2,7 +2,9 @@ from cassandra.cqlengine import connection
 from instagram import client
 from src.models.raw.raw_recent_media import RawRecentMediaEntity
 from src.models.raw.raw_user import RawUserEntity
-from src.models.raw.user_recent_media import RawUserRecentMediaEntity
+from src.models.raw.raw_user_recent_media import RawUserRecentMediaEntity
+from src.models.source.source_user import SourceUserEntity
+from src.utils.setup import setup_env
 
 INSTAGRAM_CONFIG = {
     'client_id': 'f5ac08e3237643f28361ffe36c1f6675',
@@ -11,20 +13,15 @@ INSTAGRAM_CONFIG = {
 }
 CASSANDRA_CONFIG = {
     'ip': 'localhost',
-    'raw_keyspace': 'instagram_prototype_raw',
-    'source_keyspace': 'instagram_prototype_source',
+    'keyspace': 'instagram_prototype_raw',
     'user': 'cassandra',
     'password': 'cassandra'
 }
 
-def open_source_session():
-    connection.setup([CASSANDRA_CONFIG['ip']], CASSANDRA_CONFIG['source_keyspace'], protocol_version=3)
-    #SourceRecentMediaEntity.sync_table()
-    #SourceUserEntity.sync_table()
-    #SourceUserRecentMediaEntity.sync_table()
-
-def open_raw_session():
-    connection.setup([CASSANDRA_CONFIG['ip']], CASSANDRA_CONFIG['raw_keyspace'], protocol_version=3)
+def open_cassandra_session():
+    setup_env()
+    connection.setup([CASSANDRA_CONFIG['ip']], CASSANDRA_CONFIG['keyspace'], protocol_version=3)
+    SourceUserEntity.sync_table()
     RawRecentMediaEntity.sync_table()
     RawUserEntity.sync_table()
     RawUserRecentMediaEntity.sync_table()

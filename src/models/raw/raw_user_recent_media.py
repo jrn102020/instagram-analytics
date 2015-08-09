@@ -3,20 +3,19 @@ from cassandra.cqlengine.management import sync_table
 from cassandra.cqlengine.models import Model
 import datetime
 
-
 class RawUserRecentMediaEntity(Model):
     id = columns.Text(primary_key=True)
-    user_id = columns.Integer()
+    user_id = columns.Integer(index=True)
     username = columns.Text()
     full_name = columns.Text()
     caption_text = columns.Text()
-    likes_count = columns.Integer()
+    likes_count = columns.Integer(index=True)
     comments = columns.List(columns.Text())
-    comment_count = columns.Integer()
-    tags = columns.List(columns.Text())
+    comment_count = columns.Integer(index=True)
+    tags = columns.List(columns.Text(index=True))
     url = columns.Text()
-    date_time = columns.DateTime()
-    location = columns.Text()
+    date_time = columns.DateTime(index=True)
+    location = columns.Text(index=True)
 
     def __repr__(self):
         return 'Id: %s - Username: %s - UserId: %d - LikesCount: %d - CommentsCount: %d - Timestamp: %s - Location: %s' \

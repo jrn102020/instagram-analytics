@@ -1,0 +1,1 @@
+select * from instagram_prototype_raw.source_user_entity ;
