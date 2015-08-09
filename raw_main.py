@@ -21,6 +21,7 @@ def produce_raw_layer():
         cycle_start_time = datetime.datetime.now()
         recent_media_added = 0
         users_added = 0
+        users_updated = 0
         user_recent_media_added = 0
 
         # Get recent popular media
@@ -41,19 +42,20 @@ def produce_raw_layer():
             parsed_media.save()
             recent_media_added += 1
 
-            user_recent_media_added, users_added = handle_user_info(parsed_media, user_recent_media_added, users_added)
+            user_recent_media_added, users_added, users_updated = handle_user_info(parsed_media,
+                                                                                  user_recent_media_added,
+                                                                                  users_added, users_updated)
 
-        log_run_metrics(cycle_start_time, recent_media_added, users_added, user_recent_media_added)
+        log_run_metrics(cycle_start_time, recent_media_added, users_added, users_updated, user_recent_media_added)
     except Exception as e:
         print("ERROR - userId: %d caused error: " + str(e))
         pass
 
 
-def handle_user_info(parsed_media, user_recent_media_added, users_added):
+def handle_user_info(parsed_media, user_recent_media_added, users_added, users_updated):
     # Find the user info
     user = RawUserEntity.parse(api.user(parsed_media.user_id))
     user.save()
-    users_added += 1
 
     # Find and parse the users recent media
     user_recent_media = []
@@ -66,27 +68,28 @@ def handle_user_info(parsed_media, user_recent_media_added, users_added):
 
     source_user_model_obj = SourceUserEntity.objects(SourceUserEntity.user_id == user.user_id)
     if source_user_model_obj.first():
-        update_source_user(source_user_model_obj)
+        save_source_user(True, source_user_model_obj.first(), user_recent_media)
+        users_updated += 1
     else:
-        save_source_user(user, user_recent_media)
+        save_source_user(False, user, user_recent_media)
+        users_added += 1
 
-    return user_recent_media_added, users_added
-
-
-def update_source_user(source_user_obj):
-    source_user = source_user_obj.first()
-    source_user.update_time = datetime.datetime.now()
-    source_user.update()
-    print("UPDATE user: " + repr(source_user))
+    return user_recent_media_added, users_added, users_updated
 
 
-def save_source_user(user, user_recent_media):
+def save_source_user(is_update, user, user_recent_media):
     # Compute the additional values for the user, and a save as source user
     most_recent_engagement_rating = engagement_rating(user_recent_media[0: 1], user.followers)
     averaged_engagement_rating = engagement_rating(user_recent_media, user.followers)
     is_trending, trending_value = trending(user_recent_media, user.followers)
     locations = find_location(user_recent_media)
     recent_media_ids = map(lambda media: media.id, user_recent_media)
+    updated_time = datetime.datetime.now()
+    created_time = user.created_time if is_update else datetime.datetime.now()
+
+    # In the even the column is Null because this field was added after initial data entry
+    if created_time is None:
+        created_time = datetime.datetime.now()
 
     source_user = SourceUserEntity(user_id=user.user_id, username=user.username, full_name=user.full_name,
                                    bio=user.bio, locations=locations, website=user.website,
@@ -94,10 +97,14 @@ def save_source_user(user, user_recent_media):
                                    follows=user.follows, followers=user.followers, recent_media_ids=recent_media_ids,
                                    most_recent_engagement_rating=most_recent_engagement_rating,
                                    averaged_engagement_rating=averaged_engagement_rating, trending=is_trending,
-                                   trending_value=trending_value, created_time=datetime.datetime.now(),
-                                   updated_time=datetime.datetime.now())
-    print("INSERT user: " + repr(source_user))
-    source_user.save()
+                                   trending_value=trending_value, created_time=created_time, updated_time=updated_time)
+
+    if is_update:
+        print("UPDATE user: " + repr(source_user))
+        source_user.update()
+    else:
+        print("INSERT user: " + repr(source_user))
+        source_user.save()
 
 
 # Sums the likes and the counts of the most recent list divided by the count of the
@@ -116,6 +123,13 @@ def engagement_rating(user_recent_media_list, total_followers):
     return averaged_engagements / float(total_followers)
 
 
+def trending_rating(recent_posts):
+    sum = 0
+    for recent in recent_posts:
+        sum += recent.likes_count + recent.comment_count
+
+    return sum / float(len(recent_posts))
+
 # Will compare the users previous recent media by producing an engagement rating
 # of the user's most recent (half the list) and their previous (2nd half of list)
 # recent media, and then divide those two values to produce growth indicator or
@@ -132,13 +146,13 @@ def trending(recent_media_list, total_followers):
         most_recents = recent_media_list[0: (len(recent_media_list) / 2)]
         previous_recents = recent_media_list[(len(recent_media_list) / 2): len(recent_media_list)]
 
-    most_recents_engagement_rating = engagement_rating(most_recents, total_followers)
-    previous_recent_engagement_rating = engagement_rating(previous_recents, total_followers)
+    most_recents_trending_rating = trending_rating(most_recents)
+    previous_recents_trending_rating = trending_rating(previous_recents)
 
-    trending_rating = ((most_recents_engagement_rating - previous_recent_engagement_rating) / most_recents_engagement_rating)
-    is_trending = trending_rating > 0.0
+    trending_rate = ((most_recents_trending_rating - previous_recents_trending_rating) / most_recents_trending_rating)
+    is_trending = trending_rate > 0.0
 
-    return is_trending, trending_rating
+    return is_trending, trending_rate
 
 
 def find_location(recents):
@@ -151,10 +165,10 @@ def find_location(recents):
     return set(locations)
 
 
-def log_run_metrics(cycle_start_time, recent_media_added, users_added, user_recent_media_added):
+def log_run_metrics(cycle_start_time, recent_media_added, users_added, users_updated, user_recent_media_added):
     print '\nDONE: inserting new records into database at %s.' % datetime.datetime.now()
-    print 'Inserted: RecentMedia: %d -- Users: %d -- UserRecentMedia: %d' % (recent_media_added,\
-users_added, user_recent_media_added)
+    print 'Inserted: RecentMedia: %d -- Users Added: %d -- Users Updated: %d -- UserRecentMedia: %d'\
+          % (recent_media_added, users_added, users_updated, user_recent_media_added)
     print 'Cycle run time taken: %s' % (datetime.datetime.now() - cycle_start_time)
     print 'Process start time was: %s' % process_start_time
     print 'Process run time currently: %s' % (datetime.datetime.now() - process_start_time)
